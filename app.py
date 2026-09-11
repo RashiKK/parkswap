@@ -391,7 +391,9 @@ def api_me():
     return jsonify(current_user().to_public_dict())
 
 
+with app.app_context():
+    db.create_all()
+
+
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
     app.run(debug=True, port=5000)
