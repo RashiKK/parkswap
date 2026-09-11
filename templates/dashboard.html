@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · ParkSwap{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+{% endblock %}
+{% block body %}
+<div class="app-shell">
+
+  <header class="topbar">
+    <div class="brand"><span class="mark-dot"></span> ParkSwap</div>
+
+    <div class="mode-toggle" id="mode-toggle">
+      <button class="mode-btn active" data-mode="seeker">Seeker</button>
+      <button class="mode-btn" data-mode="releaser">Releaser</button>
+    </div>
+
+    <div class="topbar-right">
+      <div class="me">
+        <span id="me-name">{{ username }}</span>
+        <span id="me-rating" class="me-rating">–</span>
+      </div>
+      <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-small">Sign out</a>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <section class="map-pane">
+      <div id="map"></div>
+      <div class="map-legend">
+        <span><i class="dot dot-available"></i> Available</span>
+        <span><i class="dot dot-you"></i> You</span>
+      </div>
+    </section>
+
+    <section class="side-pane">
+
+      <!-- SEEKER MODE -->
+      <div class="mode-panel" id="panel-seeker">
+        <div class="panel-block">
+          <div class="panel-title">
+            <h2>Find a spot</h2>
+            <button id="locate-btn" class="btn btn-ghost btn-small">Use my location</button>
+          </div>
+          <p class="panel-sub">Searching within {{ radius }} km of your pin. Search a place, click the map, or use your location — then drag the pin to fine-tune.</p>
+          <div class="search-row">
+            <input type="text" id="seeker-search-input" placeholder="Search a place… e.g. Gulshan 1">
+            <button id="seeker-search-btn" class="btn btn-ghost btn-small">Search</button>
+          </div>
+          <div id="seeker-search-results" class="search-results"></div>
+          <div id="nearby-list" class="ticket-list">
+            <div class="empty-state">Set your location to see nearby "Leaving Soon" spots.</div>
+          </div>
+        </div>
+
+        <div class="panel-block" id="active-hold-block" style="display:none;">
+          <div class="panel-title"><h2>Your hold</h2></div>
+          <div id="active-hold"></div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-title"><h2>Your requests</h2></div>
+          <div id="my-requests" class="ticket-list">
+            <div class="empty-state">No requests yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RELEASER MODE -->
+      <div class="mode-panel" id="panel-releaser" style="display:none;">
+        <div class="panel-block" id="releaser-idle">
+          <div class="panel-title"><h2>Leaving a spot?</h2></div>
+          <p class="panel-sub">Search a place or click the map to drop your pin — then drag it to fine-tune before broadcasting.</p>
+          <div class="search-row">
+            <input type="text" id="releaser-search-input" placeholder="Search a place… e.g. Gulshan 1">
+            <button id="releaser-search-btn" class="btn btn-ghost btn-small">Search</button>
+          </div>
+          <div id="releaser-search-results" class="search-results"></div>
+          <label class="field">
+            <span>Label (optional)</span>
+            <input type="text" id="spot-label" placeholder="e.g. Newbury St, near Exeter">
+          </label>
+          <button id="mark-leaving-btn" class="btn btn-primary btn-full" disabled>
+            Mark "Leaving Soon"
+          </button>
+          <p class="panel-hint" id="pin-hint">Click the map to drop your pin first.</p>
+        </div>
+
+        <div class="panel-block" id="releaser-active" style="display:none;">
+          <div class="panel-title"><h2>Your broadcast</h2></div>
+          <div id="my-spot-card" class="spot-card"></div>
+
+          <div id="incoming-requests" class="ticket-list"></div>
+
+          <div id="held-request-card"></div>
+
+          <button id="cancel-spot-btn" class="btn btn-ghost btn-full">Cancel broadcast</button>
+        </div>
+      </div>
+
+      <!-- HISTORY (shared) -->
+      <div class="panel-block">
+        <div class="panel-title"><h2>History</h2></div>
+        <div id="history-list" class="ticket-list">
+          <div class="empty-state">No completed exchanges yet.</div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+</div>
+
+<!-- Receipt modal, shown the instant a Seeker confirms arrival -->
+<div class="modal-overlay" id="receipt-overlay" style="display:none;">
+  <div class="receipt-card">
+    <div class="receipt-icon">🧾</div>
+    <h3>Paid instantly</h3>
+    <div class="receipt-row"><span>Parking fee</span><span id="r-amount">$0.00</span></div>
+    <div class="receipt-row highlight"><span>To the Releaser</span><span id="r-payout">$0.00</span></div>
+    <div class="receipt-row"><span>ParkSwap commission</span><span id="r-commission">$0.00</span></div>
+    <button class="btn btn-primary btn-full" id="receipt-close">Nice — done</button>
+  </div>
+</div>
+
+<template id="tmpl-rate-form">
+  <div class="rate-row">
+    <div class="stars" data-score="0">
+      <button type="button" class="star" data-value="1">★</button>
+      <button type="button" class="star" data-value="2">★</button>
+      <button type="button" class="star" data-value="3">★</button>
+      <button type="button" class="star" data-value="4">★</button>
+      <button type="button" class="star" data-value="5">★</button>
+    </div>
+    <input type="text" class="rate-comment" maxlength="280" placeholder="Leave a quick note (optional)&hellip;">
+    <button type="button" class="btn btn-primary btn-small submit-rating">Submit</button>
+  </div>
+</template>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"
+        data-hold-window="{{ hold_window }}" data-fee="{{ fee }}"></script>
+{% endblock %}

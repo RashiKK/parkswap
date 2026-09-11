@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Create account' if mode == 'register' else 'Sign in' }} · ParkSwap{% endblock %}
+{% block body %}
+<div class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-mark">
+      <span class="mark-dot"></span>
+      <span class="mark-word">ParkSwap</span>
+    </div>
+    <p class="auth-tagline">Leaving a spot? Someone nearby needs it right now.</p>
+
+    <div class="auth-tabs">
+      <a href="{{ url_for('login') }}" class="auth-tab {{ 'active' if mode == 'login' else '' }}">Sign in</a>
+      <a href="{{ url_for('register') }}" class="auth-tab {{ 'active' if mode == 'register' else '' }}">Create account</a>
+    </div>
+
+    {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+    <form method="post" class="auth-form">
+      <label>
+        <span>Username</span>
+        <input type="text" name="username" autocomplete="username" required autofocus>
+      </label>
+      <label>
+        <span>Password</span>
+        <input type="password" name="password" autocomplete="{{ 'new-password' if mode == 'register' else 'current-password' }}" required>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">
+        {{ 'Create account' if mode == 'register' else 'Sign in' }}
+      </button>
+    </form>
+
+    <p class="auth-hint">
+      Try the Sarah &amp; Marcus story yourself: register two accounts (a normal window +
+      an incognito window), broadcast a spot as one, request it as the other.
+    </p>
+  </div>
+</div>
+{% endblock %}
