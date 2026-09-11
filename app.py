@@ -25,9 +25,15 @@ from models import (
     HoldRequest, Rating, Spot, Transaction, User, db, haversine_km, now_iso,
 )
 
+
+import os
+
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "dev-secret-change-me"
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///parkswap.db"
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL",
+    "sqlite:///parkswap.db"
+)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
