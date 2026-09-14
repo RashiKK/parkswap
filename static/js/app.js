@@ -366,8 +366,12 @@
               <button class="btn btn-ghost btn-small decline-btn">Decline</button>
             </div>`;
           card.querySelector(".accept-btn").addEventListener("click", async () => {
-            await api(`/api/requests/${r.id}/accept`, { method: "POST" });
-            refreshReleaser();
+            try {
+              await api(`/api/requests/${r.id}/accept`, { method: "POST" });
+              refreshReleaser();
+            } catch (err) {
+              alert(err.message);
+            }
           });
           card.querySelector(".decline-btn").addEventListener("click", async () => {
             await api(`/api/requests/${r.id}/decline`, { method: "POST" });
@@ -435,6 +439,7 @@
   async function refreshMe() {
     const me = await api("/api/me");
     document.getElementById("me-rating").textContent = me.rating_count > 0 ? `★ ${me.avg_rating} (${me.rating_count})` : "No ratings yet";
+    document.getElementById("me-coins").textContent = `🪙 ${me.coins}`;
   }
 
   function tickTimers() {

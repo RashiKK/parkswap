@@ -22,6 +22,8 @@ HOLD_WINDOW_MINUTES = 10       # how long a held spot stays reserved
 SEARCH_RADIUS_KM = 5.0         # how far a Seeker searches for "leaving soon" spots
 PARKING_FEE = 3.00             # flat fee, escrowed from the Seeker
 COMMISSION_RATE = 0.15         # ParkSwap's cut of the fee
+STARTING_COINS = 500           # granted to every new account
+MATCH_COST_COINS = 10          # charged to the Seeker only on a successful match
 
 
 def now_iso():
@@ -43,6 +45,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    coins = db.Column(db.Integer, nullable=False, default=STARTING_COINS)
     created_at = db.Column(db.String(40), default=now_iso)
 
     spots = db.relationship("Spot", backref="releaser", lazy=True, foreign_keys="Spot.releaser_id")
@@ -55,6 +58,17 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def has_enough_coins(self, amount=MATCH_COST_COINS):
+        return self.coins >= amount
+
+    def charge_coins(self, amount=MATCH_COST_COINS):
+        """Deduct coins for a successful match. Caller must have already
+        verified has_enough_coins() — this never lets balance go negative."""
+        if self.coins < amount:
+            return False
+        self.coins -= amount
+        return True
 
     @property
     def avg_rating(self):
@@ -71,6 +85,7 @@ class User(db.Model):
             "username": self.username,
             "avg_rating": self.avg_rating,
             "rating_count": self.rating_count,
+            "coins": self.coins,
         }
 
 

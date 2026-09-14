@@ -75,6 +75,7 @@ a { color: inherit; }
 .topbar-right { display: flex; align-items: center; gap: 14px; }
 .me { font-size: 13px; display: flex; align-items: baseline; gap: 6px; }
 .me-rating { color: var(--accent-signal); font-weight: 600; font-size: 12px; }
+.me-coins { color: var(--accent-teal); font-weight: 600; font-size: 12px; }
 
 /* ---------- Layout ---------- */
 

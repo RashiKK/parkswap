@@ -21,19 +21,13 @@ from functools import wraps
 from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
 
 from models import (
-    HOLD_WINDOW_MINUTES, PARKING_FEE, SEARCH_RADIUS_KM,
+    HOLD_WINDOW_MINUTES, MATCH_COST_COINS, PARKING_FEE, SEARCH_RADIUS_KM,
     HoldRequest, Rating, Spot, Transaction, User, db, haversine_km, now_iso,
 )
 
-
-import os
-
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URL",
-    "sqlite:///parkswap.db"
-)
+app.config["SECRET_KEY"] = "dev-secret-change-me"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///parkswap.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
@@ -256,9 +250,20 @@ def api_accept_request(req_id):
     if spot.status != "available":
         return jsonify({"error": "spot is not available"}), 400
 
+    seeker = hr.seeker
+    if not seeker.has_enough_coins(MATCH_COST_COINS):
+        # The match cannot complete — the request stays pending so the
+        # Releaser can accept a different Seeker instead.
+        return jsonify({
+            "error": f"This seeker doesn't have enough coins ({seeker.coins}/{MATCH_COST_COINS}) to complete the match.",
+        }), 402
+
     hr.status = "accepted"
     hr.hold_expires_at = (datetime.utcnow() + timedelta(minutes=HOLD_WINDOW_MINUTES)).isoformat(timespec="seconds")
     spot.status = "held"
+    # The search/request itself was free — the charge only lands now,
+    # at the moment the match actually succeeds.
+    seeker.charge_coins(MATCH_COST_COINS)
     # Matching engine locks the transaction: every other pending request auto-declines.
     HoldRequest.query.filter(
         HoldRequest.spot_id == spot.id, HoldRequest.status == "pending", HoldRequest.id != req_id
@@ -267,7 +272,10 @@ def api_accept_request(req_id):
     txn = Transaction.build_for(hr)
     db.session.add(txn)
     db.session.commit()
-    return jsonify({"ok": True, "hold_expires_at": hr.hold_expires_at})
+    return jsonify({
+        "ok": True, "hold_expires_at": hr.hold_expires_at,
+        "seeker_coins_remaining": seeker.coins,
+    })
 
 
 @app.route("/api/requests/<int:req_id>/decline", methods=["POST"])
@@ -391,9 +399,7 @@ def api_me():
     return jsonify(current_user().to_public_dict())
 
 
-with app.app_context():
-    db.create_all()
-
-
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
     app.run(debug=True, port=5000)
