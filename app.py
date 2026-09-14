@@ -17,6 +17,7 @@ Then open: http://127.0.0.1:5000
 
 from datetime import datetime, timedelta
 from functools import wraps
+import os
 
 from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
 
@@ -26,10 +27,29 @@ from models import (
 )
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "dev-secret-change-me"
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///parkswap.db"
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+
+# Render's managed Postgres injects a DATABASE_URL env var automatically once
+# you attach a Postgres database to this service. Locally (no env var set)
+# this falls back to the same SQLite file as before, so nothing changes for
+# local development. Render's free web-service filesystem is ephemeral —
+# every redeploy/restart wipes any local SQLite file — so on Render you want
+# DATABASE_URL pointing at Postgres, not the sqlite:// fallback.
+db_url = os.environ.get("DATABASE_URL", "sqlite:///parkswap.db")
+if db_url.startswith("postgres://"):
+    # SQLAlchemy 1.4+/2.x requires the "postgresql://" scheme; some providers
+    # (Render included, historically) hand out the older "postgres://" form.
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
+
+# Create tables at import time, inside an app context — not gated behind
+# `if __name__ == "__main__"`. Gunicorn (what Render actually runs) imports
+# this module as `app:app`; it never executes the __main__ block, so the old
+# placement meant tables were never created under Gunicorn at all.
+with app.app_context():
+    db.create_all()
 
 
 # ---- Auth helpers -----------------------------------------------------
@@ -400,6 +420,4 @@ def api_me():
 
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
     app.run(debug=True, port=5000)
